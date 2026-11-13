@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>画像からPDF作成</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      margin: 1em;
+      background: #f9f9f9;
+      color: #222;
+      line-height: 1.4;
+    }
+    h1 {
+      font-size: 1.4rem;
+      margin-bottom: 0.5em;
+    }
+    #images-box {
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      padding: 10px;
+      background: #fff;
+      width: 100%;
+      max-width: 720px;
+      box-sizing: border-box;
+      margin-top: 10px;
+    }
+    #images-container > div {
+      margin-bottom: 6px;
+      padding: 6px 8px;
+      border: 1px solid #eee;
+      background: #fafafa;
+      border-radius: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      box-sizing: border-box;
+    }
+    .file-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      overflow: hidden;
+    }
+    .thumb {
+      width: 40px;
+      height: 40px;
+      object-fit: cover;
+      border-radius: 3px;
+      border: 1px solid #ddd;
+      flex-shrink: 0;
+    }
+    .file-name {
+      font-size: 0.9rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .row-actions {
+      display: flex;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    input[type="text"] {
+      padding: 4px 5px;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+      font-size: 0.9rem;
+    }
+    button.move-btn {
+      background: #757575;
+      color: white;
+      border: none;
+      border-radius: 3px;
+      padding: 4px 8px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      margin-top: 0;
+    }
+    button.move-btn:hover {
+      background: #424242;
+    }
+    button.remove-btn {
+      background: #f44336;
+      color: white;
+      border: none;
+      border-radius: 3px;
+      padding: 4px 10px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      margin-top: 0;
+    }
+    button.remove-btn:hover {
+      background: #d32f2f;
+    }
+    button, #convertBtn {
+      font-size: 0.95rem;
+      padding: 6px 12px;
+      border-radius: 5px;
+      border: none;
+      cursor: pointer;
+      background: #1976d2;
+      color: white;
+      transition: background-color 0.3s;
+      margin-top: 8px;
+    }
+    button:hover, #convertBtn:hover {
+      background: #0d47a1;
+    }
+    #progress-container {
+      width: 100%;
+      max-width: 600px;
+      background: #eee;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      margin: 10px 0;
+      height: 20px;
+    }
+    #progress-bar {
+      width: 0%;
+      height: 100%;
+      background: #4caf50;
+      border-radius: 8px;
+      transition: width 0.2s;
+    }
+    #status {
+      font-weight: 500;
+      margin-bottom: 10px;
+    }
+    label {
+      display: block;
+      margin: 10px 0 6px;
+      font-weight: 600;
+    }
+    .option-setting {
+      margin: 15px 0;
+      padding: 10px;
+      background: #e3f2fd;
+      border-radius: 8px;
+      display: inline-block;
+    }
+    .empty-msg {
+      color: #777;
+      font-size: 0.9rem;
+      margin: 4px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>画像からPDF作成</h1>
+  <h3>🖼️画像ファイルをまとめてPDF化！</h3>
+  <h4>PNGやJPEGなどの画像を選択して、<br>
+    順番通りに1つのPDFへ一括変換！<br>
+    ページの並べ替えやファイル名自動補完もバッチリ。</h4>
+  
+  <label>出力ファイル名：<input type="text" id="title" placeholder="例：楽譜まとめ" /></label>
+
+  <label>
+    画像ファイルを選択（複数可）：
+    <input type="file" id="imageFiles" accept="image/png, image/jpeg, image/webp" multiple />
+  </label>
+  <p id="fileCount"></p>
+
+  <div class="option-setting">
+    <label style="display: flex; align-items: center; cursor: pointer; margin: 0;">
+      <input type="checkbox" id="fitA4" style="margin-right: 8px;">
+      全ページをA4縦サイズに統一する（オフの場合は画像の元サイズ）
+    </label>
+  </div>
+  
+  <div id="images-box">
+    <div id="images-container">
+      <p class="empty-msg">上の「ファイルを選択」から画像を追加してください。</p>
+    </div>
+    <button id="clearBtn" style="background: #757575; font-size: 0.85rem; padding: 4px 10px;">すべてクリア</button>
+  </div>
+
+  <button id="convertBtn">PDFを作成＆ダウンロード</button>
+
+  <div id="progress-container"><div id="progress-bar"></div></div>
+  
+  <p id="status"></p>
+
+  <div>作成者名:ちー(X:<a href="https://x.com/chiiirrrrro" target="_blank">@chiiirrrrro</a>)</div>
+
+<script>
+  const imagesContainer = document.getElementById('images-container');
+  const fileCountElem = document.getElementById('fileCount');
+  const titleField = document.getElementById('title');
+  
+  // 追加されたファイルオブジェクトを管理する配列
+  let selectedFiles = [];
+
+  // ファイルリストの描画更新
+  function renderFileList() {
+    imagesContainer.innerHTML = '';
+
+    if (selectedFiles.length === 0) {
+      imagesContainer.innerHTML = '<p class="empty-msg">上の「ファイルを選択」から画像を追加してください。</p>';
+      fileCountElem.textContent = '';
+      return;
+    }
+
+    fileCountElem.textContent = `選択中: ${selectedFiles.length}枚`;
+
+    selectedFiles.forEach((item, index) => {
+      const div = document.createElement('div');
+
+      // 左側：ページ番号・サムネイル・ファイル名
+      const infoDiv = document.createElement('div');
+      infoDiv.className = 'file-info';
+
+      const pageBadge = document.createElement('strong');
+      pageBadge.textContent = `${index + 1}.`;
+      pageBadge.style.minWidth = '24px';
+      infoDiv.appendChild(pageBadge);
+
+      const thumb = document.createElement('img');
+      thumb.className = 'thumb';
+      thumb.src = item.previewUrl;
+      infoDiv.appendChild(thumb);
+
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'file-name';
+      nameSpan.textContent = item.file.name;
+      infoDiv.appendChild(nameSpan);
+
+      div.appendChild(infoDiv);
+
+      // 右側：順番入れ替え・削除ボタン
+      const actionsDiv = document.createElement('div');
+      actionsDiv.className = 'row-actions';
+
+      const upBtn = document.createElement('button');
+      upBtn.textContent = '↑';
+      upBtn.className = 'move-btn';
+      upBtn.disabled = index === 0;
+      upBtn.style.opacity = index === 0 ? '0.4' : '1';
+      upBtn.addEventListener('click', () => {
+        [selectedFiles[index - 1], selectedFiles[index]] = [selectedFiles[index], selectedFiles[index - 1]];
+        renderFileList();
+      });
+      actionsDiv.appendChild(upBtn);
+
+      const downBtn = document.createElement('button');
+      downBtn.textContent = '↓';
+      downBtn.className = 'move-btn';
+      downBtn.disabled = index === selectedFiles.length - 1;
+      downBtn.style.opacity = index === selectedFiles.length - 1 ? '0.4' : '1';
+      downBtn.addEventListener('click', () => {
+        [selectedFiles[index + 1], selectedFiles[index]] = [selectedFiles[index], selectedFiles[index + 1]];
+        renderFileList();
+      });
+      actionsDiv.appendChild(downBtn);
+
+      const delBtn = document.createElement('button');
+      delBtn.textContent = '削除';
+      delBtn.className = 'remove-btn';
+      delBtn.addEventListener('click', () => {
+        URL.revokeObjectURL(item.previewUrl);
+        selectedFiles.splice(index, 1);
+        renderFileList();
+      });
+      actionsDiv.appendChild(delBtn);
+
+      div.appendChild(actionsDiv);
+      imagesContainer.appendChild(div);
+    });
+  }
+
+  // ファイル選択時の処理（追加選択にも対応）
+  document.getElementById('imageFiles').addEventListener('change', function () {
+    const files = Array.from(this.files);
+    if (files.length === 0) return;
+
+    // タイトルが空なら1枚目のファイル名から自動補完
+    if (!titleField.value.trim()) {
+      const baseName = files[0].name.replace(/\.[^/.]+$/, '');
+      titleField.value = baseName;
+    }
+
+    files.forEach(file => {
+      selectedFiles.push({
+        file: file,
+        previewUrl: URL.createObjectURL(file)
+      });
+    });
+
+    // 同じファイルを再度選べるようにinputをリセット
+    this.value = '';
+    renderFileList();
+  });
+
+  // すべてクリアボタン
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    selectedFiles.forEach(item => URL.revokeObjectURL(item.previewUrl));
+    selectedFiles = [];
+    renderFileList();
+  });
+
+  // WebPなどの画像をCanvas経由でPNGのArrayBufferに変換する補助関数
+  function convertImageToPngBuffer(file) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        URL.revokeObjectURL(url);
+        canvas.toBlob(async (blob) => {
+          if (!blob) return reject(new Error('画像変換に失敗しました'));
+          resolve(await blob.arrayBuffer());
+        }, 'image/png');
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error('画像の読み込みに失敗しました'));
+      };
+      img.src = url;
+    });
+  }
+
+  // PDF変換＆ダウンロード処理
+  async function convertImagesToPdf() {
+    const status = document.getElementById('status');
+    const progressBar = document.getElementById('progress-bar');
+    const fitA4 = document.getElementById('fitA4').checked;
+
+    progressBar.style.width = '0%';
+    status.textContent = "処理を開始します";
+
+    const title = titleField.value.trim();
+
+    if (!title || selectedFiles.length === 0) {
+      status.textContent = "出力ファイル名と画像ファイルを入力してください";
+      return;
+    }
+
+    try {
+      const pdfDoc = await PDFLib.PDFDocument.create();
+      // A4サイズ (ポイント単位: 595.28 x 841.89)
+      const A4_WIDTH = 595.28;
+      const A4_HEIGHT = 841.89;
+
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i].file;
+        status.textContent = `処理中… ${file.name} (${i + 1}/${selectedFiles.length})`;
+
+        let embeddedImage;
+        if (file.type === 'image/jpeg' || file.type === 'image/jpg') {
+          const arrayBuffer = await file.arrayBuffer();
+          embeddedImage = await pdfDoc.embedJpg(arrayBuffer);
+        } else if (file.type === 'image/png') {
+          const arrayBuffer = await file.arrayBuffer();
+          embeddedImage = await pdfDoc.embedPng(arrayBuffer);
+        } else {
+          // WebP等の場合はPNGに変換してから埋め込み
+          const pngBuffer = await convertImageToPngBuffer(file);
+          embeddedImage = await pdfDoc.embedPng(pngBuffer);
+        }
+
+        const imgDims = embeddedImage.scale(1);
+
+        if (fitA4) {
+          // A4サイズ内に縦横比を維持して中央配置
+          const page = pdfDoc.addPage([A4_WIDTH, A4_HEIGHT]);
+          const scale = Math.min(A4_WIDTH / imgDims.width, A4_HEIGHT / imgDims.height);
+          const drawWidth = imgDims.width * scale;
+          const drawHeight = imgDims.height * scale;
+          const x = (A4_WIDTH - drawWidth) / 2;
+          const y = (A4_HEIGHT - drawHeight) / 2;
+
+          page.drawImage(embeddedImage, {
+            x: x,
+            y: y,
+            width: drawWidth,
+            height: drawHeight,
+          });
+        } else {
+          // 画像の元サイズそのままのページを作成
+          const page = pdfDoc.addPage([imgDims.width, imgDims.height]);
+          page.drawImage(embeddedImage, {
+            x: 0,
+            y: 0,
+            width: imgDims.width,
+            height: imgDims.height,
+          });
+        }
+
+        progressBar.style.width = `${Math.floor(((i + 1) / selectedFiles.length) * 100)}%`;
+        await new Promise(r => setTimeout(r, 10));
+      }
+
+      status.textContent = "PDFファイルを作成中…";
+      const pdfBytes = await pdfDoc.save();
+      const blob = new Blob([pdfBytes], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${title}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+
+      status.textContent = "完了！PDFファイルをダウンロードしました。";
+    } catch (e) {
+      console.error(e);
+      status.textContent = `エラーが発生しました: ${e.message}`;
+    }
+  }
+
+  document.getElementById('convertBtn').addEventListener('click', convertImagesToPdf);
+</script>
+</body>
+</html>
